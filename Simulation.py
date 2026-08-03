@@ -1,101 +1,58 @@
-from __future__ import annotations
-
-import ctypes
-from pathlib import Path
-
+import mujoco
+import mujoco.viewer
 import numpy as np
-
-from environment import LegWheelRobot
-from keyboard import KeyboardController
-
-
-ROOT = Path(__file__).resolve().parent
-CPP_VMC_DLL = ROOT / "cpp_control" / "build-ninja" / "vmc_bridge.dll"
-
-
-class CppVmcController:
-    def __init__(self, dll_path: Path = CPP_VMC_DLL):
-        if not dll_path.exists():
-            raise FileNotFoundError(
-                f"C++ VMC DLL not found: {dll_path}\n"
-                "Build it first: cmake --build E:\\Mujoco\\wheel_leg_mujoco\\cpp_control\\build-ninja"
-            )
-
-        self.lib = ctypes.CDLL(str(dll_path))
-        double_p = ctypes.POINTER(ctypes.c_double)
-        self.lib.vmc_compute_c.argtypes = [
-            ctypes.c_double,
-            double_p,
-            double_p,
-            double_p,
-            double_p,
-            double_p,
-            double_p,
-            ctypes.c_double,
-            double_p,
-        ]
-        self.lib.vmc_compute_c.restype = None
-
-    def compute(self, robot: LegWheelRobot, dt: float) -> np.ndarray:
-        quat = np.asarray(robot.orien, dtype=np.float64)
-        euler = np.asarray(robot.euler, dtype=np.float64)
-        gyro = np.asarray(robot.gyro, dtype=np.float64)
-        joint_pos = np.asarray(robot.joint_pos, dtype=np.float64)
-        wheel_pos = np.asarray([robot.right_wheel_pos, robot.left_wheel_pos], dtype=np.float64)
-        wheel_vel = np.asarray(robot.wheel_vel, dtype=np.float64)
-        out = np.zeros(6, dtype=np.float64)
-
-        self.lib.vmc_compute_c(
-            ctypes.c_double(float(robot.data.time)),
-            quat.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-            euler.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-            gyro.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-            joint_pos.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-            wheel_pos.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-            wheel_vel.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-            ctypes.c_double(float(dt)),
-            out.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
-        )
-        return out
-
-
-def apply_ctrl(robot: LegWheelRobot, ctrl: np.ndarray) -> None:
-    if hasattr(robot, "apply_torque"):
-        robot.apply_torque(ctrl)
-        return
-
-    robot.joint_torque = ctrl[:4].tolist()
-    robot.wheel_torque = ctrl[4:6].tolist()
-    robot.actuator_set_torque()
-
-
-def main() -> None:
-    robot = LegWheelRobot("MJCF/env.xml", viewer=True)
-    controller = CppVmcController()
+import time
+from environment import *
+from VMC import *
+from keyboard import *
+import math
+from Controller import *
+def main():
+    
+    TORQUE = 1  #为1时给力矩，为0是无力矩
+    GBC486 = LegWheelRobot('MJCF/env.xml')
+    i = 0
+    t1 = 1
+    t2 = 4
+    t3 = 20
+    vmc_r = leg_VMC()
+    vmc_l = leg_VMC()
     keyboard = KeyboardController()
 
-    step_count = 0
-    sensor_div = 1
-    control_div = 4
-    keyboard_div = 20
 
-    try:
-        while True:
-            step_count += 1
-            robot.step()
+    while True:
+        i = i + 1
+        
+        # 执行仿真步
+        GBC486.step()  # 仿真的timestep是1ms，意味着每执行一次step仿真世界时间过去1ms
+        #传感器数据获取
+        if i % t1 == 0: 
+            GBC486.sensor_read_data()
+        #vmc计算、观测器计算、LQR计算
+        if i % t2 == 0:
+            #正向运动学计算，获取状态
+            vmc_r.vmc_calc_pos(phi1=GBC486.joint_pos[0]+math.pi,phi4=GBC486.joint_pos[1],pitch= GBC486.euler[1],gyro=GBC486.gyro[1])
+            vmc_l.vmc_calc_pos(phi1=GBC486.joint_pos[3]+math.pi,phi4=GBC486.joint_pos[2],pitch=-GBC486.euler[1],gyro=-GBC486.gyro[1])
+            vmc_r.F0 = 0
+            vmc_l.F0 = 0
+            vmc_r.Tp = 0
+            vmc_l.Tp = 0
+            
+            vmc_l.vmc_calc_torque()
+            vmc_r.vmc_calc_torque()
+            # vmc.vmc_calc()
+            w_r = 0
+            w_l = 0
+            GBC486.wheel_torque = [w_r,w_l]
+            GBC486.joint_torque = [vmc_r.torque_set[1],vmc_r.torque_set[0],vmc_l.torque_set[0],vmc_l.torque_set[1]]
+            GBC486.actuator_set_torque()
 
-            if step_count % sensor_div == 0:
-                robot.sensor_read_data()
-
-            if step_count % control_div == 0 and len(robot.joint_pos) == 4:
-                ctrl = controller.compute(robot, robot.model.opt.timestep * control_div)
-                apply_ctrl(robot, ctrl)
-
-            if step_count % keyboard_div == 0:
-                _ = keyboard.get_command()
-    finally:
-        robot.close()
+        #键盘控制指令输入,以及打印数据;运行频率低以降低仿真延迟
+        if i % t3 == 0:
+            cmd = keyboard.get_command()
+            # print(vmc_r.L0,vmc_l.L0)
 
 
-if __name__ == "__main__":
+
+if __name__ == '__main__':
     main()

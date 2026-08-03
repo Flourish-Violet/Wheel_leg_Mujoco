@@ -1,137 +1,122 @@
-from __future__ import annotations
-
-import math
-from pathlib import Path
-
 import mujoco
 import mujoco.viewer
 import numpy as np
-
-from caculation import orientation2euler
-
+import time
+import math
+from caculation import *
 
 class LegWheelRobot:
-    """Wheel-leg robot simulation wrapper.
-
-    The actuator order is fixed by `MJCF/robot.xml`:
-    [right_front, right_rear, left_front, left_rear, right_wheel, left_wheel].
-    """
-
-    def __init__(self, model_path: str = "MJCF/env.xml", viewer: bool = True): #viewer: bool = True 是为了表示viewer期望传入一个布尔类型的值，但是也可以传入其他类型
-        self.model_path = str(Path(model_path))
-        self.model = mujoco.MjModel.from_xml_path(self.model_path)
+    """腿轮机器人仿真类"""
+    
+    def __init__(self, model_path: str = 'legwheel_robot1.xml'):
+        # 加载模型
+        self.model = mujoco.MjModel.from_xml_path(model_path)
         self.data = mujoco.MjData(self.model)
-        self.viewer = mujoco.viewer.launch_passive(self.model, self.data) if viewer else None
 
-        self.sensor_T = float(self.model.opt.timestep)
-        self.sensor_f = 1.0 / self.sensor_T
+        self.sensor_T = 0.001
+        self.sensor_f = 1/self.sensor_T 
         self.wheel_r = 0.77
 
-        self.gyro = np.zeros(3) #陀螺仪角速度
-        self.accel = np.zeros(3) #加速度计加速度
-        self.orien = np.array([1.0, 0.0, 0.0, 0.0]) #四元数
-        self.euler = np.zeros(3) #欧拉角
-        self.joint_pos = np.zeros(4)
-        self.wheel_vel = np.zeros(2)
+        self.gyro = []
+        self.accel = []
+        self.orien = []
+        self.euler = []
 
-        self.x = 0.0
-        self.d_x = 0.0
-        self.left_wheel_pos = 0.0
-        self.right_wheel_pos = 0.0
-        self.last_left_wheel_pos = 0.0
-        self.last_right_wheel_pos = 0.0
+        self.joint_pos = []
+        self.wheel_vel = [0,0]
 
-        self.wheel_torque = [0.0, 0.0]
-        self.joint_torque = [0.0, 0.0, 0.0, 0.0]
+        self.x = 0 #整车位移
+        self.d_x = 0 #整车速度
 
-        if self.viewer is not None:
-            print("MuJoCo viewer started. Press ESC in the viewer to exit.")
+        self.sensor_data = []
 
-    def close(self) -> None:
-        if self.viewer is not None:
-            self.viewer.close()
-            self.viewer = None
 
-    def sensor_read_data(self) -> dict: # 表示 self传入参数是dict类型
+        self.left_wheel_pos = 0
+        self.right_wheel_pos = 0
+        
+        self.last_left_wheel_pos = 0
+        self.last_right_wheel_pos = 0
+
+        self.wheel_torque = [0,0]#顺序：右、左
+        self.joint_torque = [0,0,0,0]#顺序：右前、右后、左前、左后
+
+
+
+        # 启动可视化界面
+        self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
+        print("MuJoCo界面已启动！按ESC退出")
+    
+    def sensor_read_data(self):
+        """读取传感器数据"""
+        # 更新传感器数据
         mujoco.mj_forward(self.model, self.data)
-
-        self.orien = self.data.sensor("orientation").data.copy()
-        self.euler = np.asarray(orientation2euler(self.orien), dtype=float)
-        self.gyro = self.data.sensor("gyro").data.copy()
-
-        self.right_wheel_pos = float(self.data.sensor("Right_Wheel_pos").data.copy()[0])
-        self.left_wheel_pos = float(self.data.sensor("Left_Wheel_pos").data.copy()[0])
-        self.wheel_vel[0] = round((self.right_wheel_pos - self.last_right_wheel_pos) * self.sensor_f, 3)
-        self.wheel_vel[1] = -round((self.left_wheel_pos - self.last_left_wheel_pos) * self.sensor_f, 3)
+        
+        # 四元数+欧拉角
+        self.orien = self.data.sensor('orientation').data.copy()
+        self.euler = orientation2euler(self.orien)
+        # 陀螺仪（角速度）
+        self.gyro = self.data.sensor('gyro').data.copy()
+        # 轮速（官方给的轮速好像有问题，这边直接用当前位置与上一次位置做差，实车还是要用LK电机的轮速数据）
+        self.right_wheel_pos = self.data.sensor('Right_Wheel_pos').data.copy()[0]
+        self.left_wheel_pos =  self.data.sensor('Left_Wheel_pos').data.copy()[0]
+        self.wheel_vel[0] = round((float)(self.right_wheel_pos - self.last_right_wheel_pos) * self.sensor_f,3)
+        self.wheel_vel[1] = -round((float)(self.left_wheel_pos - self.last_left_wheel_pos  ) * self.sensor_f,3)
         self.last_right_wheel_pos = self.right_wheel_pos
         self.last_left_wheel_pos = self.left_wheel_pos
+        
+        self.d_x = (self.wheel_vel[0] + self.wheel_vel[1]) * 0.5 * 2*math.pi*self.wheel_r / 60
+        self.x = self.x + self.d_x*self.sensor_T
 
-        self.d_x = (self.wheel_vel[0] + self.wheel_vel[1]) * 0.5 * 2.0 * math.pi * self.wheel_r / 60.0
-        self.x += self.d_x * self.sensor_T
+        # 右前关节位置
+        right_front_pos = self.data.sensor('Right_front_joint_pos').data.copy()[0]+0.027  #AB
+        # 右后关节位置
+        right_rear_pos = self.data.sensor('Right_rear_joint_pos').data.copy()[0]+1.3     #AG
+        # 左前关节位置
+        left_front_pos = self.data.sensor('Left_front_joint_pos').data.copy()[0]+0.003   #IJ
+        # 左后关节位置
+        left_rear_pos = self.data.sensor('Left_rear_joint_pos').data.copy()[0]-1.3       #IO
+        self.joint_pos = np.array([right_front_pos, right_rear_pos, left_front_pos, left_rear_pos])
+        
 
-        right_front_pos = float(self.data.sensor("Right_front_joint_pos").data.copy()[0]) + 0.027
-        right_rear_pos = float(self.data.sensor("Right_rear_joint_pos").data.copy()[0]) + 1.3
-        left_front_pos = float(self.data.sensor("Left_front_joint_pos").data.copy()[0]) + 0.003
-        left_rear_pos = float(self.data.sensor("Left_rear_joint_pos").data.copy()[0]) - 1.3
-        self.joint_pos = np.array([right_front_pos, right_rear_pos, left_front_pos, left_rear_pos], dtype=float)
-        return self.get_observation()
-
-    def get_observation(self) -> dict:
-        return {
-            "time": float(self.data.time),
-            "orientation": self.orien.copy(),
-            "euler": self.euler.copy(),
-            "roll": float(self.euler[0]),
-            "pitch": float(self.euler[1]),
-            "yaw": float(self.euler[2]),
-            "gyro": self.gyro.copy(),
-            "joint_pos": self.joint_pos.copy(),
-            "wheel_vel": self.wheel_vel.copy(),
-            "x": float(self.x),
-            "dx": float(self.d_x),
-            "ctrl": self.data.ctrl.copy(),
-            "qpos": self.data.qpos.copy(),
-            "qvel": self.data.qvel.copy(),
-        }
-
-    def apply_torque(self, torque) -> None:
-        torque = np.asarray(torque, dtype=float)
-        if torque.shape != (6,):
-            raise ValueError(f"Expected 6 torque commands, got shape {torque.shape}")
-        self.data.ctrl[:] = np.clip(torque, self.model.actuator_ctrlrange[:, 0], self.model.actuator_ctrlrange[:, 1])
-        self.joint_torque = self.data.ctrl[:4].tolist()
-        self.wheel_torque = self.data.ctrl[4:6].tolist()
-
-    def actuator_set_torque(self) -> None:
-        self.apply_torque([*self.joint_torque, *self.wheel_torque])
+    def actuator_set_torque(self):
+        """设置执行器力矩"""
+        # 设置关节力矩
+        self.data.ctrl[0] = self.joint_torque[0]  # 右前关节
+        self.data.ctrl[1] = self.joint_torque[1]  # 右后关节
+        self.data.ctrl[2] = self.joint_torque[2]  # 左前关节
+        self.data.ctrl[3] = self.joint_torque[3]  # 左后关节
+        
+        # 设置轮子力矩
+        self.data.ctrl[4] = self.wheel_torque[0]  # 右轮
+        self.data.ctrl[5] = self.wheel_torque[1]  # 左轮（注意gainprm为-1）
 
     def set_joint_positions(self, joint_angles):
-        joint_names = ["jAG", "jGH", "jIO", "jOP"]
-        for i, name in enumerate(joint_names):
-            if i >= len(joint_angles):
-                break
-            joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, name)
-            if joint_id != -1:
-                qpos_addr = self.model.jnt_qposadr[joint_id]
-                qvel_addr = self.model.jnt_dofadr[joint_id]
-                self.data.qpos[qpos_addr] = joint_angles[i]
-                self.data.qvel[qvel_addr] = 0.0
+
+        # 获取关节索引
+        joint_indices = [
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, 'jAG'),
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, 'jGH'),
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, 'jIO'),
+            mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, 'jOP')
+        ]
+        
+        # 设置关节位置和速度
+        for i, idx in enumerate(joint_indices):
+            if idx != -1 and i < len(joint_angles):
+                self.data.qpos[idx] = joint_angles[i]
+                self.data.qvel[idx] = 0.0  # 只重置关节速度
+                # print(idx)
+        
+        # 更新模型状态
         mujoco.mj_forward(self.model, self.data)
 
-    def step(self) -> None:
+    def step(self):
+        """执行一步仿真"""
         mujoco.mj_step(self.model, self.data)
-        if self.viewer is not None:
-            self.viewer.sync()
-
-    def reset(self) -> None:
+        self.viewer.sync()
+    
+    def reset(self):
+        """重置机器人状态"""
         mujoco.mj_resetData(self.model, self.data)
-        self.x = 0.0
-        self.d_x = 0.0
-        self.left_wheel_pos = 0.0
-        self.right_wheel_pos = 0.0
-        self.last_left_wheel_pos = 0.0
-        self.last_right_wheel_pos = 0.0
-        self.wheel_vel = np.zeros(2)
-        self.joint_pos = np.zeros(4)
-        self.data.ctrl[:] = 0.0
-        mujoco.mj_forward(self.model, self.data)
+        # self.motor_set_torque(0.0, 0.0)
+
