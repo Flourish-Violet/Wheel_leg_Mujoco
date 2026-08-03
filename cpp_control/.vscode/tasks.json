@@ -1,0 +1,45 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CMake Configure (Ninja)",
+      "type": "shell",
+      "command": "D:/APP/Cmake_4.3.2/bin/cmake.exe",
+      "args": [
+        "-S", ".",
+        "-B", "build-ninja",
+        "-G", "Ninja",
+        "-DCMAKE_CXX_COMPILER=C:/mingw64/bin/g++.exe",
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake Build",
+      "type": "shell",
+      "command": "D:/APP/Cmake_4.3.2/bin/cmake.exe",
+      "args": [
+        "--build", "build-ninja"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "build",
+      "dependsOn": "CMake Configure (Ninja)",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Run wheel_leg_cpp_control",
+      "type": "shell",
+      "command": "${workspaceFolder}/build-ninja/wheel_leg_cpp_control.exe",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "dependsOn": "CMake Build",
+      "problemMatcher": []
+    }
+  ]
+}

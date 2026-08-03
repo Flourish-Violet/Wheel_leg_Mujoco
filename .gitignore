@@ -1,0 +1,49 @@
+# Python cache and local environments
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.venv/
+venv/
+env/
+
+# Experiment outputs
+runs/*
+
+# CMake and native build directories
+**/build/
+**/build-*/
+**/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Makefile
+build.ninja
+.ninja_deps
+.ninja_log
+
+# Native build artifacts
+*.dll
+*.exe
+*.lib
+*.obj
+*.o
+*.pdb
+*.ilk
+
+# MuJoCo generated binaries and backups
+*.mjb
+*.bak
+
+# Logs and local configuration
+*.log
+.env
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini

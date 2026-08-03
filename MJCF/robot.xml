@@ -1,0 +1,312 @@
+<!-- 001 模型根节点，文件名来自 SolidWorks 导出装配体。 -->
+<mujoco model="GBC486.SLDASM">
+<!-- 002 默认属性开始，用来集中定义接触类。 -->
+  <default>
+<!-- 003 touch 类：允许参与碰撞。 -->
+    <default class="touch">
+        <geom contype="1" conaffinity="1" />
+<!-- 005 默认属性结束。 -->
+    </default>
+<!-- 006 untouch 类：禁用碰撞。 -->
+    <default class="untouch">
+        <geom contype="0" conaffinity="0" />
+<!-- 008 默认属性结束。 -->
+    </default>
+<!-- 009 默认属性结束。 -->
+  </default>
+<!-- 010 编译器设置：角度单位使用弧度。 -->
+  <compiler angle="radian"/>
+  
+<!-- 012 资产定义开始，先加载所有网格和材质。 -->
+  <asset>
+<!-- 013 底盘网格。 -->
+    <mesh name="base_link" file="base_link.STL"/>
+<!-- 014 右侧连杆 AG 的网格。 -->
+    <mesh name="AG" file="AG.STL"/>
+<!-- 015 右侧连杆 GH 的网格。 -->
+    <mesh name="GH" file="GH.STL"/>
+<!-- 016 右轮网格。 -->
+    <mesh name="wheel_right" file="wheel_right.STL"/>
+<!-- 017 右前连杆 AB 的网格。 -->
+    <mesh name="AB" file="AB.STL"/>
+<!-- 018 右前连杆 BE 的网格。 -->
+    <mesh name="BE" file="BE.STL"/>
+<!-- 019 右前连杆 EC 的网格。 -->
+    <mesh name="EC" file="EC.STL"/>
+<!-- 020 右前连杆 CF 的网格。 -->
+    <mesh name="CF" file="CF.STL"/>
+<!-- 021 左侧连杆 IJ 的网格。 -->
+    <mesh name="IJ" file="IJ.STL"/>
+<!-- 022 左侧连杆 JM 的网格。 -->
+    <mesh name="JM" file="JM.STL"/>
+<!-- 023 左侧连杆 MK 的网格。 -->
+    <mesh name="MK" file="MK.STL"/>
+<!-- 024 左侧连杆 KN 的网格。 -->
+    <mesh name="KN" file="KN.STL"/>
+<!-- 025 左侧连杆 IO 的网格。 -->
+    <mesh name="IO" file="IO.STL"/>
+<!-- 026 左侧连杆 OP 的网格。 -->
+    <mesh name="OP" file="OP.STL"/>   
+<!-- 027 左轮网格。 -->
+    <mesh name="wheel_left" file="wheel_left.STL"/>
+    
+    <!-- 添加材质 -->
+<!-- 030 底盘材质。 -->
+    <material name="base_mat" rgba="0.2 0.2 0.25 1" specular="0.5" shininess="0.5"/>
+<!-- 031 右侧机构常用的蓝色材质。 -->
+    <material name="arm_blue" rgba="0.3 0.5 0.8 1" specular="0.8" shininess="0.8"/>
+<!-- 032 左侧机构常用的红色材质。 -->
+    <material name="arm_red" rgba="0.8 0.3 0.3 1" specular="0.8" shininess="0.8"/>
+<!-- 033 备用绿色材质。 -->
+    <material name="arm_green" rgba="0.3 0.8 0.4 1" specular="0.8" shininess="0.8"/>
+<!-- 034 关节/连接块材质。 -->
+    <material name="joint_mat" rgba="0.7 0.7 0.75 1" specular="1.0" shininess="1.0"/>
+<!-- 035 轮子材质。 -->
+    <material name="wheel_mat" rgba="0.15 0.15 0.2 1" specular="0.3" shininess="0.2"/>
+<!-- 036 白色材质。 -->
+    <material name="white_mat" rgba="0.95 0.95 0.97 1" specular="0.9" shininess="0.7"/>
+<!-- 037 资产定义结束。 -->
+  </asset>
+
+<!-- 039 世界体开始，下面是机器人本体的层级树。 -->
+  <worldbody>
+    <!-- <body name="base" pos="0 0 0.5" quat="0.9659258262890683 0 0.25881904510252076 0"> -->
+<!-- 041 根身体 base，安装自由关节后就是一个可在空间中漂浮的底盘。 -->
+    <body name="base" pos="0 0 0.2" >
+    <!-- "扣雷挖及悠打"，注释下面这行代码可以让车身悬浮在空中 -->
+<!-- 043 自由关节，提供 6 自由度。 -->
+      <joint name="base_free" type="free"/>
+<!-- 044 IMU 传感器安装点，不是实体几何。 -->
+      <site name="imu" type="box" size="0.002 0.002 0.002"  rgba="1 1 0 1"/>
+<!-- 045 底盘几何，使用底盘网格并赋予质量。 -->
+      <geom type="mesh" material="base_mat" mesh="base_link" 
+        class="touch" mass="8.4"/>
+      
+
+      <!-- 右腿臂（蓝色系） -->
+<!-- 050 右侧上支链 AG，位于底盘右后侧附近。 -->
+      <body name="AG" pos="-0.01375 -0.1995 0.134" quat="0.707105 0.707108 0 0">
+<!-- 051 AG 转动关节，绕 Z 轴旋转并带角度限位。 -->
+        <joint name="jAG" pos="0 0 0" axis="0 0 1" range="-1.57 0.3"/>
+<!-- 052 右侧闭环连接点 D，用来和 EC-D 绑定。 -->
+        <site name="AG-D" pos="-0.027 -0.094 0" size="0.002" rgba="0 1 0 1"/> 
+<!-- 053 AG 连杆几何。 -->
+        <geom type="mesh" material="arm_blue" mesh="AG"
+          class="untouch" mass="0.667"/>
+
+<!-- 056 右侧下支链 GH。 -->
+        <body name="GH" pos="-0.060152 -0.20641 0.0345">
+<!-- 057 GH 转动关节。 -->
+          <joint name="jGH" pos="0 0 0" axis="0 0 1" range="-0.85 1"/>
+<!-- 058 右侧闭环连接点 F。 -->
+          <site name="GH-F" pos="-0.0604 0.0259 -0.03" size="0.01" rgba="0 1 0 1"/> 
+<!-- 059 右侧小轮相关的参考点。 -->
+          <site name="GH-little_wheel" pos="-0.033 -0.062 -0.01" size="0.01" rgba="0 1 0 1"/> 
+<!-- 060 GH 关节块几何。 -->
+          <geom type="mesh" material="joint_mat" mesh="GH"
+            class="touch" mass="1.64"/>
+
+<!-- 063 右轮安装体。 -->
+          <body name="wheel_right" pos="0.25495 -0.039583 0.0155">
+<!-- 064 右轮转动关节，轮轴方向与左轮相反。 -->
+            <joint name="jwheel_right" pos="0 0 0" axis="0 0 -1"/>
+<!-- 065 右轮几何。 -->
+            <geom type="mesh" material="arm_blue" mesh="wheel_right"
+            class="touch" mass="0.322"/>
+<!-- 067 结束当前 body 层级。 -->
+          </body>
+<!-- 068 结束当前 body 层级。 -->
+        </body>
+<!-- 069 结束当前 body 层级。 -->
+      </body>
+
+<!-- 071 右前四杆/分支 AB。 -->
+      <body name="AB" pos="-0.01375 -0.2155 0.134" quat="0.707105 0.707108 0 0">
+<!-- 072 AB 转动关节。 -->
+        <joint name="jAB" pos="0 0 0" axis="0 0 1" range="-1.57 0.5"/>
+<!-- 073 AB 连接块几何。 -->
+        <geom type="mesh" material="joint_mat" mesh="AB"
+        class="untouch" mass="0.202"/>
+
+<!-- 076 右前分支 BE。 -->
+        <body name="BE" pos="0.097866 0.0051238 -0.013">
+<!-- 077 BE 转动关节。 -->
+          <joint name="jBE" pos="0 0 0" axis="0 0 1"/>
+<!-- 078 BE 连杆几何。 -->
+          <geom type="mesh" material="arm_blue" mesh="BE"
+          class="touch" mass="0.057"/>
+
+<!-- 081 右前分支 EC。 -->
+          <body name="EC" pos="-0.0090761 -0.11725 0.0094">
+<!-- 082 EC 转动关节，轴向与前一段相反。 -->
+            <joint name="jEC" pos="0 0 0" axis="0 0 -1"/>
+<!-- 083 右前闭环连接点 D。 -->
+            <site name="EC-D" pos="-0.115974 0.017382 -0.01" size="0.002" rgba="1 0 0 1"/> 
+<!-- 084 EC 连接块几何。 -->
+            <geom type="mesh" material="joint_mat" mesh="EC"
+            class="touch" mass="0.128"/>
+
+<!-- 087 右前末端 CF。 -->
+            <body name="CF" pos="-0.17658 0.044698 -0.0124">
+<!-- 088 CF 转动关节，形成闭环链条的一部分。 -->
+              <joint name="jCF" pos="0 0 0" axis="0 0 -1"/>
+<!-- 089 右前闭环连接点 F。 -->
+              <site name="CF-F" pos="-0.0332 -0.111 0" size="0.002" rgba="1 0 0 1"/> 
+<!-- 090 CF 连杆几何。 -->
+              <geom type="mesh" material="arm_blue" mesh="CF"
+              class="touch" mass="0.057"/>
+<!-- 092 结束当前 body 层级。 -->
+            </body>
+<!-- 093 结束当前 body 层级。 -->
+          </body>
+<!-- 094 结束当前 body 层级。 -->
+        </body>
+<!-- 095 结束当前 body 层级。 -->
+      </body>
+      
+      <!-- 左腿（红色系） -->
+<!-- 098 左侧上支链 IJ。 -->
+      <body name="IJ" pos="-0.01375 0.2165 0.134" quat="0.707105 0.707108 0 0">
+<!-- 099 IJ 转动关节，转向与右侧对称但轴符号不同。 -->
+        <joint name="jIJ" pos="0 0 0" axis="0 0 -1" range="-0.5 1.57"/>
+<!-- 100 IJ 连接块几何。 -->
+        <geom type="mesh" material="joint_mat" mesh="IJ"
+        class="untouch" mass="0.202"/>
+
+<!-- 103 左侧中间连杆 JM。 -->
+        <body name="JM" pos="0.097866 0.0051238 0.013">
+<!-- 104 JM 转动关节。 -->
+          <joint name="jJM" pos="0 0 0" axis="0 0 -1"/>
+<!-- 105 JM 连杆几何。 -->
+          <geom type="mesh" material="arm_red" mesh="JM"
+          class="touch" mass="0.057"/>
+
+<!-- 108 左侧闭环前段 MK。 -->
+          <body name="MK" pos="-0.0090761 -0.11725 -0.0094">
+<!-- 109 MK 转动关节。 -->
+            <joint name="jMK" pos="0 0 0" axis="0 0 -1"/>
+<!-- 110 左侧闭环连接点 L。 -->
+            <site name="MK-L" pos="-0.115974 0.017382 0.01" size="0.01" rgba="1 0 0 1"/> 
+<!-- 111 MK 连接块几何。 -->
+            <geom type="mesh" material="joint_mat" mesh="MK"
+            class="touch" mass="0.128"/>
+
+<!-- 114 左侧末端连杆 KN。 -->
+            <body name="KN" pos="-0.17658 0.044698 0.0124">
+<!-- 115 KN 转动关节。 -->
+              <joint name="jKN" pos="0 0 0" axis="0 0 1"/>
+<!-- 116 左侧闭环连接点 N。 -->
+              <site name="KN-N" pos="-0.0332 -0.111 0" size="0.01" rgba="1 0 0 1"/> 
+<!-- 117 KN 连杆几何。 -->
+              <geom type="mesh" material="arm_red" mesh="KN"
+              class="touch" mass="0.057"/>
+<!-- 119 结束当前 body 层级。 -->
+            </body>
+<!-- 120 结束当前 body 层级。 -->
+          </body>
+<!-- 121 结束当前 body 层级。 -->
+        </body>
+<!-- 122 结束当前 body 层级。 -->
+      </body>
+
+<!-- 124 左侧另一条支链 IO。 -->
+      <body name="IO" pos="-0.01375 0.2005 0.134" quat="0.707105 0.707108 0 0">
+<!-- 125 IO 转动关节。 -->
+        <joint name="jIO" pos="0 0 0" axis="0 0 -1" range="-0.3 1.57"/>
+<!-- 126 左侧闭环连接点 L。 -->
+        <site name="IO-L" pos="-0.027 -0.094 0" size="0.01" rgba="0 1 0 1"/> 
+<!-- 127 IO 连杆几何。 -->
+        <geom type="mesh" material="arm_red" mesh="IO"
+        class="untouch" mass="0.667"/>
+
+<!-- 130 左侧末端连杆 OP。 -->
+        <body name="OP" pos="-0.060152 -0.20641 -0.0345">
+<!-- 131 OP 转动关节。 -->
+          <joint name="jOP" pos="0 0 0" axis="0 0 -1" range="-1 0.85"/>
+<!-- 132 左侧闭环连接点 N。 -->
+          <site name="OP-N" pos="-0.0604 0.0259 0.03" size="0.01" rgba="0 1 0 1"/> 
+<!-- 133 OP 连接块几何。 -->
+          <geom type="mesh" material="joint_mat" mesh="OP"
+          class="touch" mass="1.64"/>
+
+<!-- 136 左轮安装体。 -->
+          <body name="wheel_left" pos="0.25495 -0.039576 -0.0155">
+<!-- 137 左轮转动关节，和右轮相反需要反向增益。 -->
+            <joint name="jwheel_left" pos="0 0 0" axis="0 0 1"/>
+<!-- 138 左轮几何。 -->
+            <geom type="mesh" material="arm_red" mesh="wheel_left"
+            class="touch" mass="0.322"/>
+<!-- 140 结束当前 body 层级。 -->
+          </body>
+<!-- 141 结束当前 body 层级。 -->
+        </body>
+<!-- 142 结束当前 body 层级。 -->
+      </body>
+<!-- 143 结束当前 body 层级。 -->
+    </body>
+<!-- 144 机器人本体层级结束。 -->
+  </worldbody>
+
+<!-- 146 闭环约束开始，用 site-to-site 连接把机构锁成闭链。 -->
+  <equality>
+<!-- 147 把右侧 EC-D 和 AG-D 强制连到同一点。 -->
+    <connect name="right_D" site1="EC-D" site2="AG-D" solref="0.001 1" solimp="0.99 0.99 0.01 0.5 2"/>
+<!-- 148 把右侧 CF-F 和 GH-F 强制连到同一点。 -->
+    <connect name="right_F" site1="CF-F" site2="GH-F" solref="0.001 1" solimp="0.99 0.99 0.01 0.5 2"/>
+<!-- 149 把左侧 IO-L 和 MK-L 强制连到同一点。 -->
+    <connect name="left_L" site1="IO-L" site2="MK-L" solref="0.001 1" solimp="0.99 0.99 0.01 0.5 2"/>
+<!-- 150 把左侧 OP-N 和 KN-N 强制连到同一点。 -->
+    <connect name="left_F" site1="OP-N" site2="KN-N" solref="0.001 1" solimp="0.99 0.99 0.01 0.5 2"/>
+<!-- 151 闭环约束结束。 -->
+  </equality>
+
+<!-- 153 执行器开始，定义每个电机/驱动和哪个关节绑定。 -->
+  <actuator>
+<!-- 154 右前关节驱动，对应 jAB。 -->
+    <general name="Right_front_joint_act" joint="jAB" gainprm="1" ctrlrange="-20 +20" />
+<!-- 155 右后关节驱动，对应 jAG。 -->
+    <general name="Right_rear_joint_act"  joint="jAG"  gainprm="1" ctrlrange="-20 +20" />
+<!-- 156 左前关节驱动，对应 jIJ。 -->
+    <general name="Left_front_joint_act"  joint="jIJ"  gainprm="1" ctrlrange="-20 20"  />
+<!-- 157 左后关节驱动，对应 jIO。 -->
+    <general name="Left_rear_joint_act"   joint="jIO"   gainprm="1" ctrlrange="-20 +20" />
+
+<!-- 159 右轮驱动。 -->
+    <general name="Right_Wheel_act"       joint="jwheel_right" gainprm="1" ctrlrange="-4 +4"   />
+<!-- 160 左轮驱动，gainprm=-1 表示方向反号。 -->
+    <general name="Left_Wheel_act"        joint="jwheel_left"  gainprm="-1" ctrlrange="-4 +4"   />
+<!-- 161 执行器结束。 -->
+  </actuator>
+
+  
+<!-- 164 传感器开始。 -->
+    <sensor>
+      <!-- 四元数，wxyz -->
+<!-- 166 读取 IMU 位置处的四元数姿态，顺序是 wxyz。 -->
+      <framequat name='orientation' objtype='site' objname='imu' />
+      <!-- 陀螺仪，gx，gy，gz，方向以绕坐标轴右手定则为正向 -->
+<!-- 168 读取 IMU 位置处的角速度。 -->
+      <gyro name='gyro' site='imu' />
+      <!-- 轮子的速度，单位rad/s -->
+<!-- 170 读取右轮关节角度。 -->
+      <jointpos joint="jwheel_right" name="Right_Wheel_pos"/>
+<!-- 171 读取左轮关节角度。 -->
+      <jointpos joint="jwheel_left"  name="Left_Wheel_pos" />
+      <!-- 关节的位置，单位rad -->
+<!-- 173 读取右前关节角度。 -->
+      <jointpos joint="jAB" name="Right_front_joint_pos"/>
+<!-- 174 读取右后关节角度。 -->
+      <jointpos joint="jAG" name="Right_rear_joint_pos"/>
+<!-- 175 读取左前关节角度。 -->
+      <jointpos joint="jIJ" name="Left_front_joint_pos"/>
+<!-- 176 读取左后关节角度。 -->
+      <jointpos joint="jIO" name="Left_rear_joint_pos"/>
+<!-- 177 传感器结束。 -->
+    </sensor>
+
+<!-- 179 模型根节点结束。 -->
+</mujoco>
+
+
+
+      

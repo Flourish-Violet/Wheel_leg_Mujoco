@@ -1,0 +1,13 @@
+{
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "C_Cpp.default.compileCommands": "${workspaceFolder}/build-ninja/compile_commands.json",
+  "C_Cpp.default.compilerPath": "C:/mingw64/bin/g++.exe",
+  "C_Cpp.default.intelliSenseMode": "windows-gcc-x64",
+  "C_Cpp.default.cppStandard": "c++17",
+  "cmake.generator": "Ninja",
+  "cmake.buildDirectory": "${workspaceFolder}/build-ninja",
+  "cmake.configureSettings": {
+    "CMAKE_CXX_COMPILER": "C:/mingw64/bin/g++.exe",
+    "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+  }
+}
