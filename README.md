@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Wheel Leg MuJoCo
 
 这是一个基于 [MuJoCo](https://mujoco.readthedocs.io/) 的轮腿机器人仿真与控制实验仓库，主要用于：
@@ -151,3 +152,7 @@ git remote set-url origin git@github.com:Flourish-Violet/Wheel_leg_Mujoco.git
 - `runs/` 用于存放实验结果，不建议把大量生成文件直接提交到仓库。
 - `__pycache__/`、构建目录和临时文件不建议提交。
 - `README_control_lab.md` 是更长的实验说明，`README.md` 是仓库入口文档。
+=======
+# Wheel_leg_Mujoco
+for study
+>>>>>>> origin/main
